@@ -72,44 +72,6 @@ Choice choose() {
     return (Choice) (rand() % LAST);
 }
 
-char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]) {
-    int playerToServerPipe[2];
-    int serverToPlayerPipe[2];
-
-    if (pipe(playerToServerPipe) || pipe(serverToPlayerPipe)) {
-        return "There was an error when creating the server <-> player pipes\n";
-    }
-
-    int procId = fork();
-
-    if (procId == -1) {
-        return "There was an error when creating the player process";
-    }
-
-    if (procId != 0)  // child TODO replace with procId == 0
-    {
-        close(serverToPlayerPipe[1]);
-        close(playerToServerPipe[0]);
-
-        int childPipes[2] = {serverToPlayerPipe[0], playerToServerPipe[1]};
-
-        initPlayers(implementation, numberOfPlayers, childPipes);
-
-        exit(EXIT_SUCCESS);
-    }
-
-    // parent
-
-    close(serverToPlayerPipe[0]);
-    close(playerToServerPipe[1]);
-
-    // int *serverPipes = {playerToServerPipe[0], serverToPlayerPipe[1]};
-    pipes[0] = playerToServerPipe[0];
-    pipes[1] = serverToPlayerPipe[1];
-
-    return OK;
-}
-
 void setupMutexCondPlayerThreads(int numberOfPlayers,
                                  MutexCondPlayerData **playersData,
                                  pthread_t *playerThreads,

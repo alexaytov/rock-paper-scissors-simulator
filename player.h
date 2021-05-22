@@ -53,8 +53,6 @@ _Noreturn void *mutexCondPlayer(void *arg);
 
 void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]);
 
-char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]);
-
 void setupCountingSemPlayerThreads(int numberOfPlayers,
                                    Choice *results,
                                    pthread_barrier_t *barrier,

@@ -18,9 +18,9 @@ int main() {
     // variables for player management
     PlayerProcessData playerProcessData = {
             .playerPipes = {-1, -1},
-            .iterations = -1,
-            .numberOfPlayers = -1,
-            .currentIteration = -1
+            .iterations = 0,
+            .numberOfPlayers = 0,
+            .currentIteration = 0
     };
 
     char input[SOCKET_BUFFER_SIZE] = {0};
@@ -50,7 +50,7 @@ int main() {
             }
 
             if (playerProcessData.iterations <= 0 || playerProcessData.iterations > 100) {
-                writeCharToSocket(socketFD, logError("The number of iterations can be [1:100]"));
+                writeCharToSocket(socketFD, "The number of iterations can be [1:100]");
                 continue;
             }
 
@@ -66,14 +66,14 @@ int main() {
 
             int results[playerProcessData.numberOfPlayers];
             char *error;
-            if (executeTriggerCommand(playerProcessData, results, &error)) {
+            if (executeTriggerCommand(&playerProcessData, results, &error)) {
                 writeToSocket(socketFD, results, sizeof(int) * playerProcessData.numberOfPlayers);
             } else {
                 writeCharToSocket(socketFD, error);
             }
             if (playerProcessData.currentIteration >= playerProcessData.iterations) {
                 closePlayerProcess(playerProcessData.playerPipes[0], playerProcessData.playerPipes[1]);
-                resetPlayerProcessData(playerProcessData);
+                resetPlayerProcessData(&playerProcessData);
             }
 
             continue;
@@ -108,13 +108,13 @@ int waitClientConnection() {
     return connectionSocket;
 }
 
-size_t executeTriggerCommand(PlayerProcessData playerProcessData, int *results, char **error) {
-    if (playerProcessData.playerPipes[0] == -1 || playerProcessData.playerPipes[1] == -1) {
+size_t executeTriggerCommand(PlayerProcessData *playerProcessData, int *results, char **error) {
+    if (playerProcessData->playerPipes[0] == -1 || playerProcessData->playerPipes[1] == -1) {
         *error = "Please create players before triggering them";
         return 0;
     }
-    int readerPipe = playerProcessData.playerPipes[0];
-    int writerPipe = playerProcessData.playerPipes[1];
+    int readerPipe = playerProcessData->playerPipes[0];
+    int writerPipe = playerProcessData->playerPipes[1];
 
     write(writerPipe, TRIGGER_COMMAND, sizeof(TRIGGER_COMMAND));
 
@@ -126,15 +126,53 @@ size_t executeTriggerCommand(PlayerProcessData playerProcessData, int *results, 
         return 0;
     }
 
-    playerProcessData.currentIteration++;
+    playerProcessData->currentIteration++;
 
     return readBytes;
 }
 
-void resetPlayerProcessData(PlayerProcessData data) {
-    data.currentIteration = 0;
-    data.iterations = -1;
-    data.numberOfPlayers = -1;
-    data.playerPipes[0] = -1;
-    data.playerPipes[1] = -1;
+char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]) {
+    int playerToServerPipe[2];
+    int serverToPlayerPipe[2];
+
+    if (pipe(playerToServerPipe) || pipe(serverToPlayerPipe)) {
+        return "There was an error when creating the server <-> player pipes";
+    }
+
+    int procId = fork();
+
+    if (procId == -1) {
+        return "There was an error when creating the player process";
+    }
+
+    if (procId == 0)  // child TODO replace with procId == 0
+    {
+        close(serverToPlayerPipe[1]);
+        close(playerToServerPipe[0]);
+
+        int childPipes[2] = {serverToPlayerPipe[0], playerToServerPipe[1]};
+
+        initPlayers(implementation, numberOfPlayers, childPipes);
+
+        exit(EXIT_SUCCESS);
+    }
+
+    // parent
+
+    close(serverToPlayerPipe[0]);
+    close(playerToServerPipe[1]);
+
+    // int *serverPipes = {playerToServerPipe[0], serverToPlayerPipe[1]};
+    pipes[0] = playerToServerPipe[0];
+    pipes[1] = serverToPlayerPipe[1];
+
+    return OK;
+}
+
+void resetPlayerProcessData(PlayerProcessData *data) {
+    data->currentIteration = 0;
+    data->iterations = 0;
+    data->numberOfPlayers = 0;
+    data->playerPipes[0] = -1;
+    data->playerPipes[1] = -1;
 }
