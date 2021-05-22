@@ -9,18 +9,24 @@
 #include "utils.h"
 #include "communicationConstants.h"
 
-void triggerCountingSemaphorePlayerThreads(int writerPipe,
-                                           int numberOfPlayers,
-                                           CountingSemaphorePlayerData **playersData,
-                                           pthread_barrier_t *barrier,
-                                           Choice *results) {
+void triggerCountSemPlayerThreads(int numberOfPlayers,
+                                  CountingSemaphorePlayerData **playersData,
+                                  pthread_barrier_t *barrier) {
     for (int i = 0; i < numberOfPlayers; i++) {
         sem_post(&playersData[i]->sem);
     }
 
     pthread_barrier_wait(barrier);
+}
 
-    write(writerPipe, results, sizeof(int) * numberOfPlayers);
+void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
+                                   pthread_cond_t *cond,
+                                   pthread_barrier_t *barrier) {
+    pthread_mutex_lock(mtx);
+    pthread_cond_broadcast(cond);
+    pthread_mutex_unlock(mtx);
+
+    pthread_barrier_wait(barrier);
 }
 
 _Noreturn void *countingSemaphorePlayer(void *arg) {
@@ -35,19 +41,28 @@ _Noreturn void *countingSemaphorePlayer(void *arg) {
     }
 }
 
+int isSupportedImplementation(char *implementation) {
+    return !strcmp(implementation, COUNT_SEM_IMPL) || !strcmp(implementation, MTX_COND_IMPL);
+}
+
 void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]) {
     char *errMessage;
     if (isValidNumberOfPlayers(numberOfPlayers, &errMessage)) {
         logExit(errMessage);
     }
 
-    Choice *results = malloc(sizeof(Choice) * numberOfPlayers);
-
-    if (!strcmp(implementation, "counting-semaphore")) {
-        countingSemaphorePlayerImplementation(serverPipes, numberOfPlayers, results);
+    if (!isSupportedImplementation(implementation)) {
+        logExit("Unsupported implementation\n");
     }
 
-    if (!strcmp(implementation, "mutex-conditional-variable")) {
+    Choice *results = malloc(sizeof(Choice) * numberOfPlayers);
+
+    if (!strcmp(implementation, COUNT_SEM_IMPL)) {
+        countingSemPlayerImplementation(serverPipes, numberOfPlayers, results);
+    }
+
+    if (!strcmp(implementation, MTX_COND_IMPL)) {
+        mutexCondPlayerImplementation(serverPipes, numberOfPlayers, results);
     }
 
     free(results);
@@ -71,7 +86,7 @@ char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]
         return "There was an error when creating the player process";
     }
 
-    if (procId == 0)  // child TODO replace with procId == 0
+    if (procId != 0)  // child TODO replace with procId == 0
     {
         close(serverToPlayerPipe[1]);
         close(playerToServerPipe[0]);
@@ -95,34 +110,36 @@ char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]
     return OK;
 }
 
-void countingSemaphorePlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results) {
-    int readerPipe = serverPipes[0];
-    int writerPipe = serverPipes[1];
+void setupMutexCondPlayerThreads(int numberOfPlayers,
+                                 MutexCondPlayerData **playersData,
+                                 pthread_t *playerThreads,
+                                 pthread_barrier_t *barrier,
+                                 Choice *results,
+                                 pthread_mutex_t *mtx,
+                                 pthread_cond_t *cond) {
+    printf("Creating %d mutex cond player threads\n", numberOfPlayers);
 
-    pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
-    CountingSemaphorePlayerData **playersData = malloc(sizeof(CountingSemaphorePlayerData) * numberOfPlayers);
-
-    pthread_barrier_t barrier;
-    char *barrierErrMsg;
-    if (initBarrier(&barrier, &barrierErrMsg, numberOfPlayers + 1)) {
-        exitWithError(barrierErrMsg, readerPipe, writerPipe);
-    }
-
-    setupPlayerThreads(numberOfPlayers, results, &barrier, playersData, playerThreads, serverPipes);
-
-    countingSemaphoreController(serverPipes, numberOfPlayers, playersData, &barrier, results);
-
-    // cleanup
+    MutexCondPlayerData *data;
     for (int i = 0; i < numberOfPlayers; i++) {
-        free(playersData[i]);
+        data = malloc(sizeof(CountingSemaphorePlayerData));
+        data->id = i;
+        data->results = results;
+        data->barrier = barrier;
+        data->mtx = mtx;
+        data->cond = cond;
+
+        playersData[i] = data;
+
+        pthread_create(&playerThreads[i], NULL, mutexCondPlayer, (void *) data);
     }
-    free(playersData);
-    free(playerThreads);
-    pthread_barrier_destroy(&barrier);
 }
 
-void countingSemaphoreController(const int *serverPipes, int numberOfPlayers, CountingSemaphorePlayerData **playersData,
-                                 pthread_barrier_t *barrier, Choice *results) {
+void mutexCondPlayerController(int serverPipes[2],
+                               int numberOfPlayers,
+                               pthread_mutex_t *mtx,
+                               pthread_cond_t *cond,
+                               pthread_barrier_t *barrier,
+                               Choice *results) {
     int readerPipe = serverPipes[0];
     int writerPipe = serverPipes[1];
 
@@ -138,12 +155,125 @@ void countingSemaphoreController(const int *serverPipes, int numberOfPlayers, Co
         }
 
         if (!strcmp(message, TRIGGER)) {
-            triggerCountingSemaphorePlayerThreads(writerPipe, numberOfPlayers, playersData, barrier, results);
+            triggerMutexCondPlayerThreads(mtx, cond, barrier);
+            write(writerPipe, results, sizeof(int) * numberOfPlayers);
             continue;
         }
 
         if (!strcmp(message, END_PROCESS)) {
-            exitWithSuccess(OK, readerPipe, writerPipe);
+            write(writerPipe, OK, sizeof(OK));
+            break;
+        }
+
+        write(writerPipe, UNRECOGNIZED_COMMAND, sizeof(UNRECOGNIZED_COMMAND));
+    }
+}
+
+int initMutex(pthread_mutex_t *mtx, char **errMessage) {
+    int error = pthread_mutex_init(mtx, NULL);
+
+    if (error) {
+        *errMessage = logError("An error occurred when creating mutex");
+    }
+
+    return error;
+}
+
+int initCond(pthread_cond_t *cond, char **errMessage) {
+    int error = pthread_cond_init(cond, NULL);
+
+    if (error) {
+        *errMessage = logError("An error occurred when creating barrier");
+    }
+
+    return error;
+}
+
+void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choice *results) {
+    int readerPipe = serverPipes[0];
+    int writerPipe = serverPipes[1];
+
+    pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
+    MutexCondPlayerData **playersData = malloc(sizeof(MutexCondPlayerData) * numberOfPlayers);
+
+    // init sync variables
+    pthread_barrier_t barrier;
+    pthread_mutex_t mtx;
+    pthread_cond_t cond;
+    char *errMessage;
+    if (initBarrier(&barrier, &errMessage, numberOfPlayers + 1) ||
+        initMutex(&mtx, &errMessage) ||
+        initCond(&cond, &errMessage)) {
+        exitWithError(errMessage, readerPipe, writerPipe);
+    }
+
+    setupMutexCondPlayerThreads(numberOfPlayers, playersData, playerThreads, &barrier, results, &mtx, &cond);
+
+    mutexCondPlayerController(serverPipes, numberOfPlayers, &mtx, &cond, &barrier, results);
+
+    // cleanup
+    for (int i = 0; i < numberOfPlayers; i++) {
+        free(playersData[i]);
+    }
+    free(playersData);
+    free(playerThreads);
+    pthread_barrier_destroy(&barrier);
+}
+
+void countingSemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results) {
+    int readerPipe = serverPipes[0];
+    int writerPipe = serverPipes[1];
+
+    pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
+    CountingSemaphorePlayerData **playersData = malloc(sizeof(CountingSemaphorePlayerData) * numberOfPlayers);
+
+    pthread_barrier_t barrier;
+    char *barrierErrMsg;
+    if (initBarrier(&barrier, &barrierErrMsg, numberOfPlayers + 1)) {
+        exitWithError(barrierErrMsg, readerPipe, writerPipe);
+    }
+
+    setupCountingSemPlayerThreads(numberOfPlayers, results, &barrier, playersData, playerThreads, serverPipes);
+
+    countingSemPlayerController(serverPipes, numberOfPlayers, playersData, &barrier, results);
+
+    // cleanup
+    for (int i = 0; i < numberOfPlayers; i++) {
+        free(playersData[i]);
+    }
+    free(playersData);
+    free(playerThreads);
+    pthread_barrier_destroy(&barrier);
+}
+
+void countingSemPlayerController(const int *serverPipes,
+                                 int numberOfPlayers,
+                                 CountingSemaphorePlayerData **playersData,
+                                 pthread_barrier_t *barrier,
+                                 Choice *results) {
+    int readerPipe = serverPipes[0];
+    int writerPipe = serverPipes[1];
+
+    for (;;) {
+        char message[PLAYER_BUFFER_SIZE] = {0};
+
+        size_t readBytes = read(readerPipe, &message, sizeof(message));
+        if (readBytes == -1) {
+            exitWithError("Error reading from pipe", readerPipe, writerPipe);
+        }
+        if (readBytes == 0) {
+            exitWithError("Pipe was closed while waiting for instruction", readerPipe, writerPipe);
+        }
+
+        if (!strcmp(message, TRIGGER)) {
+            triggerCountSemPlayerThreads(numberOfPlayers, playersData, barrier);
+            write(writerPipe, results, sizeof(int) * numberOfPlayers);
+            continue;
+        }
+
+        if (!strcmp(message, END_PROCESS)) {
+            write(writerPipe, OK, sizeof(OK));
+            break;
         }
 
         write(writerPipe, UNRECOGNIZED_COMMAND, sizeof(UNRECOGNIZED_COMMAND));
@@ -154,13 +284,12 @@ _Noreturn void *mutexCondPlayer(void *arg) {
     MutexCondPlayerData *data = (MutexCondPlayerData *) arg;
 
     for (;;) {
-        pthread_mutex_lock(&data->mtx);
-        pthread_cond_wait(&data->cond, &data->mtx);
+        pthread_mutex_lock(data->mtx);
+        pthread_cond_wait(data->cond, data->mtx);
 
-        *(Choice *) arg = choose();
+        data->results[data->id] = choose();
 
-        pthread_mutex_unlock(&data->mtx);
-
+        pthread_mutex_unlock(data->mtx);
         pthread_barrier_wait(data->barrier);
     }
 }
@@ -170,7 +299,7 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
     write(writerPipe, endProcess, strlen(endProcess));
 
     char processResponse[PLAYER_BUFFER_SIZE] = {0};
-    int readBytes = read(readerPipe, processResponse, PLAYER_BUFFER_SIZE);
+    size_t readBytes = read(readerPipe, processResponse, PLAYER_BUFFER_SIZE);
     if (readBytes == -1 || readBytes == 0) {
         char *error = readBytes == -1 ? "There was an error reading from the players' process\n"
                                       : "The server -> players pipe is closed\n";
@@ -178,7 +307,7 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
         return;
     }
 
-    if (!strcmp(processResponse, "ok")) {
+    if (!strcmp(processResponse, OK)) {
         printf("Successfully closed player process\n");
         return;
     }
@@ -187,8 +316,12 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
     exit(EXIT_FAILURE);
 }
 
-void setupPlayerThreads(int numberOfPlayers, Choice *results, pthread_barrier_t *barrier,
-                        CountingSemaphorePlayerData **playersData, pthread_t *playerThreads, int serverPipes[2]) {
+void setupCountingSemPlayerThreads(int numberOfPlayers,
+                                   Choice *results,
+                                   pthread_barrier_t *barrier,
+                                   CountingSemaphorePlayerData **playersData,
+                                   pthread_t *playerThreads,
+                                   int *serverPipes) {
     printf("Creating %d player threads\n", numberOfPlayers);
 
     CountingSemaphorePlayerData *data;

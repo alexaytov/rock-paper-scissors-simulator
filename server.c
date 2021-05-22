@@ -54,9 +54,9 @@ int main() {
                 continue;
             }
 
-            char *returnMessage =
-                    setupPlayerProcess(implementation, playerProcessData.numberOfPlayers,
-                                       playerProcessData.playerPipes);
+            char *returnMessage = setupPlayerProcess(implementation,
+                                                     playerProcessData.numberOfPlayers,
+                                                     playerProcessData.playerPipes);
             writeCharToSocket(socketFD, returnMessage);
             continue;
         }

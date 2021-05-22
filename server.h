@@ -6,6 +6,7 @@
 #define COMMAND_DELIMITER " "
 
 size_t executeTriggerCommand(PlayerProcessData playerProcessData, int *results, char **error);
+
 void resetPlayerProcessData(PlayerProcessData);
 
 int waitClientConnection();
