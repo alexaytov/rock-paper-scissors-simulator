@@ -1,18 +1,8 @@
-#include <stdio.h>
-#include <stdlib.h>
+#ifndef KR_UTILS_H
+#define KR_UTILS_H
 
-char *logError(char *msg) {
-    fprintf(stderr, "%s", msg);
-    return msg;
-}
+char *logError(char *msg);
+char *logExit(char *msg);
+char *clearData(char *array, int len);
 
-char *logExit(char *msg) {
-    fprintf(stderr, "%s", msg);
-    exit(EXIT_FAILURE);
-}
-
-char *clearData(char *array, int len) {
-    memset(array, 0, len);
-
-    return array;
-}
+#endif //KR_UTILS_H
