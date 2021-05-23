@@ -5,5 +5,6 @@ void printSeparators(int number, char separator);
 void printResultSeparators();
 void printTableTitles(int numberOfPlayers);
 void printResults(int numberOfPlayers, int *intermediateResults);
+void printWinners(const int *winners, int winnerValue, int currentWinnerPos);
 
 #endif //KR_OUTPUT_UTILS_H

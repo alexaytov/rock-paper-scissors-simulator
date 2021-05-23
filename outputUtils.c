@@ -2,6 +2,8 @@
 #include <limits.h>
 #include "outputUtils.h"
 
+void printWinners(const int *winners, int winnerValue, int currentWinnerPos);
+
 void printSeparators(int number, char separator) {
     for (int i = 0; i < number; i++) {
         printf("%c", separator);
@@ -40,11 +42,22 @@ void printResults(int numberOfPlayers, int *intermediateResults) {
         }
     }
 
-    printf("| %s: %s", currentWinnerPos ? "Winners" : "Winner", currentWinnerPos == 0 ? "no winners" : "");
+    printWinners(winners, winnerValue, currentWinnerPos);
+}
+
+void printWinners(const int *winners, int winnerValue, int currentWinnerPos) {
+    int isAtLeastOneWinnerPresent = currentWinnerPos != 0 && winnerValue != 0;
+
+    printf("| Winner%s: ", (winnerValue != 0 && currentWinnerPos > 1) || !isAtLeastOneWinnerPresent
+                           ? "s"
+                           : "");
+    if (!isAtLeastOneWinnerPresent) {
+        printf("no winners\n");
+        return;
+    }
 
     for (int i = 0; i < currentWinnerPos; i++) {
         printf("%d ", winners[i]);
     }
-
     printf("\n");
 }

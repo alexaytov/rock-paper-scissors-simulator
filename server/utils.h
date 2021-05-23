@@ -4,6 +4,7 @@
 char *logError(char *msg);
 char *logExit(char *msg);
 char *clearData(char *array, int len);
+char *log(char *msg);
 
 void setAlarm(int time);
 void cancelAlarm();

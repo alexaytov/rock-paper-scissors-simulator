@@ -53,9 +53,7 @@ void writeToSocket(int sockFD, void *data, size_t size) {
 }
 
 int receiveSocketData(int sockFD, void *result) {
-    setAlarm(SERVER_TIMEOUT);
     size_t readBytes = recv(sockFD, result, 100, 0);
-    cancelAlarm();
 
     if (readBytes == -1) {
         perror("There was a problem receiving data from server");
@@ -70,11 +68,19 @@ int receiveSocketData(int sockFD, void *result) {
     return 1;
 }
 
+int receiveSocketDataWithTimeout(int sockFD, void *result) {
+    setAlarm(SERVER_TIMEOUT);
+    int out = receiveSocketData(sockFD, result);
+    cancelAlarm();
+
+    return out;
+}
+
 void waitRequiredSocketResponse(int sockFD, char *requiredResponse) {
     char receiveBuffer[100] = {0};
 
     setAlarm(SERVER_TIMEOUT);
-    if (!receiveSocketData(sockFD, receiveBuffer)) {
+    if (!receiveSocketDataWithTimeout(sockFD, receiveBuffer)) {
         exit(EXIT_FAILURE);
     }
     cancelAlarm();

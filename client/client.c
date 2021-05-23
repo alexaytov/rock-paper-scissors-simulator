@@ -58,7 +58,7 @@ void executeTriggerCommand(int sockFD, int iterations, int numberOfPlayers) {
     for (int i = 0; i < iterations; i++) {
         writeCharToSocket(sockFD, TRIGGER_COMMAND);
         Choice *results = malloc(sizeof(int) * numberOfPlayers);
-        receiveSocketData(sockFD, results);
+        receiveSocketDataWithTimeout(sockFD, results);
 
         int *intermediateResults = calloc(numberOfPlayers, sizeof(int));
         evaluatePoints(results, numberOfPlayers, intermediateResults);

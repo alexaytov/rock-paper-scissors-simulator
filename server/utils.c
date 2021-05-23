@@ -42,3 +42,8 @@ void initSignalHandler(int signal, void *handler) {
         return;
     }
 }
+
+char *log(char *msg) {
+    fprintf(stdout, "%s\n", msg);
+    return msg;
+}
