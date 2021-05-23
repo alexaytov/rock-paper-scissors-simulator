@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <bits/signum.h>
 #include "tcpUtils.h"
 #include "utils.h"
 #include "dataUtils.h"
@@ -14,16 +15,39 @@
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
 
+int sockFD;
+
+void alarmSignalHandler() {
+    printf("Timeout\n");
+    close(sockFD);
+    exit(EXIT_FAILURE);
+}
+
+void unexpectedCloseHandler(int signal) {
+    printf("Program closed with signal %d\n", signal);
+    close(sockFD);
+    exit(EXIT_FAILURE);
+}
+
+void initializeSignalHandlers() {
+    initSignalHandler(SIGALRM, alarmSignalHandler);
+    initSignalHandler(SIGINT, unexpectedCloseHandler);
+    initSignalHandler(SIGTERM, unexpectedCloseHandler);
+}
+
 int main() {
+    initializeSignalHandlers();
+
     struct sockaddr_in address;
-    int socketFD = setupSocket(&address);
+    sockFD = setupSocket(&address);
+
     for (;;) {
-        int connectionFD = acceptConnection(socketFD, address);
+        int connectionFD = acceptConnection(sockFD, address);
         if (connectionFD == -1) {
             exit(EXIT_FAILURE);
         }
 
-        // variables for player management
+        // variables for player process management
         PlayerProcessData playerProcessData = {
                 .playerPipes = {-1, -1},
                 .iterations = 0,
@@ -97,7 +121,7 @@ int main() {
 
 #pragma clang diagnostic pop
 
-int setupSocket(struct sockaddr_in* address) {
+int setupSocket(struct sockaddr_in *address) {
     address->sin_family = AF_INET;
     address->sin_addr.s_addr = INADDR_ANY;
     address->sin_port = htons(PORT);
