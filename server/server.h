@@ -14,4 +14,6 @@ int setupSocket();
 
 char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]);
 
+void handleConnection(int connectionFD);
+
 #endif //KR_SERVER_H

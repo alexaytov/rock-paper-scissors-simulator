@@ -4,7 +4,7 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
-#include <bits/signum.h>
+#include <signal.h>
 #include "tcpUtils.h"
 #include "utils.h"
 #include "dataUtils.h"
@@ -16,6 +16,8 @@
 #pragma ide diagnostic ignored "EndlessLoop"
 
 int sockFD;
+
+void handleConnection(int connectionFD);
 
 void alarmSignalHandler() {
     printf("Timeout\n");
@@ -44,79 +46,84 @@ int main() {
     for (;;) {
         int connectionFD = acceptConnection(sockFD, address);
         if (connectionFD == -1) {
+            close(sockFD);
             exit(EXIT_FAILURE);
         }
 
-        // variables for player process management
-        PlayerProcessData playerProcessData = {
-                .playerPipes = {-1, -1},
-                .iterations = 0,
-                .numberOfPlayers = 0,
-                .currentIteration = 0
-        };
-
-        char input[SOCKET_BUFFER_SIZE] = {0};
-        while (receiveSocketData(connectionFD, input)) {
-            char *command = strtok(input, COMMAND_DELIMITER);
-            printf("Server received command %s\n", command);
-
-            if (!strcmp(command, CREATE_COMMAND)) {
-                char *implementation = strtok(NULL, COMMAND_DELIMITER);
-                char *playersCountAsString = strtok(NULL, COMMAND_DELIMITER);
-                char *numberOfIterationsAsString = strtok(NULL, COMMAND_DELIMITER);
-
-                if (implementation == NULL || playersCountAsString == NULL || numberOfIterationsAsString == NULL) {
-                    writeCharToSocket(connectionFD, logError("Required parameters for create command are missing\n"));
-                    continue;
-                }
-
-                char *errMessage;
-                if (!parseInteger(playersCountAsString, &playerProcessData.numberOfPlayers, &errMessage)) {
-                    writeCharToSocket(connectionFD, logError(errMessage));
-                    continue;
-                }
-
-                if (!parseInteger(numberOfIterationsAsString, &playerProcessData.iterations, &errMessage)) {
-                    writeCharToSocket(connectionFD, logError(errMessage));
-                    continue;
-                }
-
-                if (playerProcessData.iterations <= 0 || playerProcessData.iterations > 100) {
-                    writeCharToSocket(connectionFD, "The number of iterations can be [1:100]");
-                    continue;
-                }
-
-                char *returnMessage = setupPlayerProcess(implementation,
-                                                         playerProcessData.numberOfPlayers,
-                                                         playerProcessData.playerPipes);
-                writeCharToSocket(connectionFD, returnMessage);
-                clearData(input, SOCKET_BUFFER_SIZE);
-                continue;
-            }
-
-            if (!strcmp(command, TRIGGER_COMMAND)) {
-                printf("Entered trigger command execution\n");
-
-                int results[playerProcessData.numberOfPlayers];
-                char *error;
-                if (executeTriggerCommand(&playerProcessData, results, &error)) {
-                    writeToSocket(connectionFD, results, sizeof(int) * playerProcessData.numberOfPlayers);
-                } else {
-                    writeCharToSocket(connectionFD, error);
-                }
-                if (playerProcessData.currentIteration >= playerProcessData.iterations) {
-                    closePlayerProcess(playerProcessData.playerPipes[0], playerProcessData.playerPipes[1]);
-                    resetPlayerProcessData(&playerProcessData);
-                }
-
-                clearData(input, SOCKET_BUFFER_SIZE);
-                continue;
-            }
-
-            writeCharToSocket(connectionFD, "Command not found");
-        }
+        handleConnection(connectionFD);
     }
+
     return 0;
+}
+
+void handleConnection(int connectionFD) {
+    PlayerProcessData playerProcessData = {
+            .playerPipes = {-1, -1},
+            .iterations = 0,
+            .numberOfPlayers = 0,
+            .currentIteration = 0
+    };
+
+    char input[SOCKET_BUFFER_SIZE] = {0};
+    while (receiveSocketData(connectionFD, input)) {
+        char *command = strtok(input, COMMAND_DELIMITER);
+        printf("Server received command %s\n", command);
+
+        if (!strcmp(command, CREATE_COMMAND)) {
+            char *implementation = strtok(NULL, COMMAND_DELIMITER);
+            char *playersCountAsString = strtok(NULL, COMMAND_DELIMITER);
+            char *numberOfIterationsAsString = strtok(NULL, COMMAND_DELIMITER);
+
+            if (implementation == NULL || playersCountAsString == NULL || numberOfIterationsAsString == NULL) {
+                writeCharToSocket(connectionFD, logError("Required parameters for create command are missing\n"));
+                continue;
+            }
+
+            char *errMessage;
+            if (!parseInteger(playersCountAsString, &playerProcessData.numberOfPlayers, &errMessage)) {
+                writeCharToSocket(connectionFD, logError(errMessage));
+                continue;
+            }
+
+            if (!parseInteger(numberOfIterationsAsString, &playerProcessData.iterations, &errMessage)) {
+                writeCharToSocket(connectionFD, logError(errMessage));
+                continue;
+            }
+
+            if (playerProcessData.iterations <= 0 || playerProcessData.iterations > 100) {
+                writeCharToSocket(connectionFD, "The number of iterations can be [1:100]");
+                continue;
+            }
+
+            char *returnMessage = setupPlayerProcess(implementation,
+                                                     playerProcessData.numberOfPlayers,
+                                                     playerProcessData.playerPipes);
+            writeCharToSocket(connectionFD, returnMessage);
+            clearData(input, SOCKET_BUFFER_SIZE);
+            continue;
+        }
+
+        if (!strcmp(command, TRIGGER_COMMAND)) {
+            printf("Entered trigger command execution\n");
+
+            int results[playerProcessData.numberOfPlayers];
+            char *error;
+            if (executeTriggerCommand(&playerProcessData, results, &error)) {
+                writeToSocket(connectionFD, results, sizeof(int) * playerProcessData.numberOfPlayers);
+            } else {
+                writeCharToSocket(connectionFD, error);
+            }
+            if (playerProcessData.currentIteration >= playerProcessData.iterations) {
+                closePlayerProcess(playerProcessData.playerPipes[0], playerProcessData.playerPipes[1]);
+                resetPlayerProcessData(&playerProcessData);
+            }
+
+            clearData(input, SOCKET_BUFFER_SIZE);
+            continue;
+        }
+
+        writeCharToSocket(connectionFD, "Command not found");
+    }
 }
 
 #pragma clang diagnostic pop
