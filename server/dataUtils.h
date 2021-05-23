@@ -1,7 +1,6 @@
 #ifndef KR_DATA_UTILS_H
 #define KR_DATA_UTILS_H
 
-int getIntegerInput(char *hint, int min, int max);
 int parseInteger(char *value, int *number, char **errMessage);
 int buildStrToLErrorIfPresent(char *buffer, char *endPtr, int number, char **errorMessage);
 

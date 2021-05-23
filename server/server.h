@@ -1,7 +1,8 @@
 #ifndef KR_SERVER_H
 #define KR_SERVER_H
 
-#define PORT 8080
+#include "player.h"
+
 #define SOCKET_BUFFER_SIZE 1024
 #define COMMAND_DELIMITER " "
 
@@ -9,7 +10,7 @@ size_t executeTriggerCommand(PlayerProcessData *playerProcessData, int *results,
 
 void resetPlayerProcessData(PlayerProcessData*);
 
-int waitClientConnection();
+int setupSocket();
 
 char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]);
 
