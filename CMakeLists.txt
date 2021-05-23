@@ -28,7 +28,7 @@ add_executable(client
         gameResultEvaluation.c gameResultEvaluation.h
         server/pipeUtils.c server/pipeUtils.h
         server/utils.c server/utils.h
-        communicationConstants.h)
+        communicationConstants.h outputUtils.c outputUtils.h)
 
 find_package(Threads REQUIRED)
 target_link_libraries(server PRIVATE Threads::Threads)
