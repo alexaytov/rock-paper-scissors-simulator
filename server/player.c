@@ -34,7 +34,7 @@ void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
         if (!areAllFlagsUp(readyFlags, numberOfPlayers)) {
             log("Not mutex-cond players are ready to be trigger, polling...");
             pthread_mutex_unlock(mtx);
-            sleep(1);
+            usleep(100);
             continue;
         }
 
@@ -281,14 +281,11 @@ void binarySemPlayerController(const int *serverPipes,
 _Noreturn void *mutexCondPlayer(void *arg) {
     MutexCondPlayerData *data = (MutexCondPlayerData *) arg;
 
-    printf("Started player with id: %d\n", data->id);
-
     for (;;) {
         pthread_mutex_lock(data->mtx);
         data->readyFlags[data->id] = 1;
         pthread_cond_wait(data->cond, data->mtx);
 
-        printf("Player with id %d activated\n", data->id);
         data->results[data->id] = choose();
 
         pthread_mutex_unlock(data->mtx);

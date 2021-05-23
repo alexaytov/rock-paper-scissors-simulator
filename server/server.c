@@ -160,6 +160,8 @@ void handleConnection(int connectionFD) {
         if (result.isMessage) {
             writeToSocket(connectionFD, result.message, result.size);
         } else {
+            writeCharToSocket(connectionFD, OK);
+            waitRequiredSocketResponse(connectionFD, OK);
             writeToSocket(connectionFD, result.results, result.size);
         }
         log("Returned result");
@@ -213,7 +215,7 @@ char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]
         return "There was an error when creating the player process";
     }
 
-    if (procId != 0)  // child TODO replace with procId == 0
+    if (procId == 0)  // child TODO replace with procId == 0
     {
         close(serverToPlayerPipe[1]);
         close(playerToServerPipe[0]);

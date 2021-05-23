@@ -64,6 +64,9 @@ void executeTriggerCommand(int sockFD, int iterations, int numberOfPlayers) {
 void executeTriggerIteration(int sockFD, int numberOfPlayers, int row, int *finalResults) {
     writeCharToSocket(sockFD, TRIGGER_COMMAND);
     Choice *results = malloc(sizeof(int) * numberOfPlayers);
+
+    waitRequiredSocketResponse(sockFD, OK); // TODO use method with timeout
+    writeCharToSocket(sockFD, OK);
     receiveSocketData(sockFD, results); // TODO use method with timeout
 
     int *intermediateResults = calloc(numberOfPlayers, sizeof(int));

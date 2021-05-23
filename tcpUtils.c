@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <server/utils.h>
+#include <server/server.h>
 #include "tcpUtils.h"
 
 int initSocket(struct sockaddr_in address) {
@@ -47,21 +48,21 @@ void writeCharToSocket(int sockFD, char *data) { writeToSocket(sockFD, data, str
 
 void writeToSocket(int sockFD, void *data, size_t size) {
     if (send(sockFD, data, size, 0) == -1) {
-        perror("There was a problem sending data to the server");
+        perror("There was a problem sending data to the socket");
         exit(EXIT_FAILURE);
     }
 }
 
 int receiveSocketData(int sockFD, void *result) {
-    size_t readBytes = recv(sockFD, result, 100, 0);
+    size_t readBytes = recv(sockFD, result, SOCKET_BUFFER_SIZE, 0);
 
     if (readBytes == -1) {
-        perror("There was a problem receiving data from server");
+        perror("There was a problem receiving data from the socket");
         return 0;
     }
 
     if (readBytes == 0) {
-        fprintf(stderr, "The connection to the socket was closed while waiting for data");
+        fprintf(stderr, "The connection to the socket was closed while waiting for data\n");
         return 0;
     }
 
@@ -77,15 +78,19 @@ int receiveSocketDataWithTimeout(int sockFD, void *result) {
 }
 
 void waitRequiredSocketResponse(int sockFD, char *requiredResponse) {
-    char receiveBuffer[100] = {0};
+    char receiveBuffer[SOCKET_BUFFER_SIZE] = {0};
 
     if (!receiveSocketData(sockFD, receiveBuffer)) {
         exit(EXIT_FAILURE);
     }
 
-    if (strcmp(receiveBuffer, requiredResponse) != 0) {
-        fprintf(stderr, "An error occurred on the server: %s\n", receiveBuffer);
-        exit(EXIT_FAILURE);
+    size_t requiredResponseLength = strlen(requiredResponse);
+
+    for (int i = 0; i < SOCKET_BUFFER_SIZE && i < requiredResponseLength; i++) {
+        if (requiredResponse[i] != receiveBuffer[i]) {
+            fprintf(stderr, "An error occurred on the server: %s\n", receiveBuffer);
+            exit(EXIT_FAILURE);
+        }
     }
 }
 
