@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <server/utils.h>
 #include <outputUtils.h>
+#include "client.h"
 
 #define CREATE_COMMAND_TEMPLATE "create %s %d %d"
 
@@ -56,25 +57,26 @@ void executeTriggerCommand(int sockFD, int iterations, int numberOfPlayers) {
     printTableTitles(numberOfPlayers);
 
     for (int i = 0; i < iterations; i++) {
-        writeCharToSocket(sockFD, TRIGGER_COMMAND);
-        Choice *results = malloc(sizeof(int) * numberOfPlayers);
-        receiveSocketDataWithTimeout(sockFD, results);
-
-        int *intermediateResults = calloc(numberOfPlayers, sizeof(int));
-        evaluatePoints(results, numberOfPlayers, intermediateResults);
-        printResultSeparators();
-
-        printResults(numberOfPlayers, intermediateResults);
-        addResultsToFinalResults(numberOfPlayers, finalResults, intermediateResults);
-
-        free(intermediateResults);
-        free(results);
+        executeTriggerIteration(sockFD, numberOfPlayers, finalResults);
     }
 
-    printf("\nFinal results\n");
-    printTableTitles(numberOfPlayers);
+    printFinalResults(numberOfPlayers, finalResults);
+}
+
+void executeTriggerIteration(int sockFD, int numberOfPlayers, int *finalResults) {
+    writeCharToSocket(sockFD, TRIGGER_COMMAND);
+    Choice *results = malloc(sizeof(int) * numberOfPlayers);
+    receiveSocketData(sockFD, results); // TODO use method with timeout
+
+    int *intermediateResults = calloc(numberOfPlayers, sizeof(int));
+    evaluatePoints(results, numberOfPlayers, intermediateResults);
     printResultSeparators();
-    printResults(numberOfPlayers, finalResults);
+
+    printResults(numberOfPlayers, intermediateResults);
+    addResultsToFinalResults(numberOfPlayers, finalResults, intermediateResults);
+
+    free(intermediateResults);
+    free(results);
 }
 
 int main() {

@@ -6,9 +6,22 @@
 #define SOCKET_BUFFER_SIZE 1024
 #define COMMAND_DELIMITER " "
 
+typedef struct Result {
+    int isMessage;
+    char *message;
+    int *results;
+    size_t size;
+} Result;
+
 size_t executeTriggerCommand(PlayerProcessData *playerProcessData, int *results, char **error);
 
-void resetPlayerProcessData(PlayerProcessData*);
+void resetPlayerProcessData(PlayerProcessData *);
+
+void handleConnection(int connectionFD);
+
+Result triggerCreateCommand(PlayerProcessData *playerProcessData);
+
+Result triggerTriggerCommand(PlayerProcessData *playerProcessData);
 
 int setupSocket();
 

@@ -270,10 +270,11 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
     }
 
     if (!strcmp(processResponse, OK)) {
-        printf("Successfully closed player process\n");
+        log("Successfully closed player process");
         return;
     }
 
+    printTimestamp(stderr);
     fprintf(stderr, "%s\n%s\n", "An error occurred while closing player process", processResponse);
     exit(EXIT_FAILURE);
 }
@@ -284,6 +285,7 @@ void setupCountingSemPlayerThreads(int numberOfPlayers,
                                    CountingSemaphorePlayerData **playersData,
                                    pthread_t *playerThreads,
                                    int *serverPipes) {
+    printTimestamp(stdout);
     printf("Creating %d player threads\n", numberOfPlayers);
 
     CountingSemaphorePlayerData *data;

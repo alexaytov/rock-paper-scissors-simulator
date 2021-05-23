@@ -17,19 +17,15 @@
 
 int sockFD;
 
-void handleConnection(int connectionFD);
-
-void *triggerCreateCommand(PlayerProcessData *playerProcessData, size_t *outSize);
-
-void *triggerTriggerCommand(PlayerProcessData *playerProcessData, size_t *outSize);
-
 void alarmSignalHandler() {
+    printTimestamp(stdout);
     printf("Timeout\n");
     close(sockFD);
     exit(EXIT_FAILURE);
 }
 
 void unexpectedCloseHandler(int signal) {
+    printTimestamp(stdout);
     printf("Program closed with signal %d\n", signal);
     close(sockFD);
     exit(EXIT_FAILURE);
@@ -60,72 +56,92 @@ int main() {
     return 0;
 }
 
-void *setupOutput(void *output, size_t outputSize, size_t *outsideSize) {
-    *outsideSize = outputSize;
-    return output;
+Result setupOutput(int *results, size_t outputSize) {
+    Result result;
+    result.size = outputSize;
+    result.results = results;
+    result.isMessage = 0;
+
+    return result;
 }
 
-void *setupCharOutput(char *output, size_t *outSize) {
-    return setupOutput(output, strlen(output), outSize);
+Result setupCharOutput(char *message) {
+    Result result;
+
+    result.isMessage = 1;
+    result.size = strlen(message);
+    result.message = message;
+
+    return result;
 }
 
-void *executeClientOperation(char input[SOCKET_BUFFER_SIZE], PlayerProcessData *playerProcessData, size_t *outSize) {
+Result executeClientOperation(char input[SOCKET_BUFFER_SIZE], PlayerProcessData *playerProcessData) {
     char *command = strtok(input, COMMAND_DELIMITER);
+    printTimestamp(stdout);
     printf("Server received command %s\n", command);
 
     if (!strcmp(command, CREATE_COMMAND)) {
-        return triggerCreateCommand(playerProcessData, outSize);
+        return triggerCreateCommand(playerProcessData);
     }
 
     if (!strcmp(command, TRIGGER_COMMAND)) {
-        return triggerTriggerCommand(playerProcessData, outSize);
+        return triggerTriggerCommand(playerProcessData);
     }
 
-    return setupCharOutput(logError("Command not found"), outSize);
+    return setupCharOutput(logError("Command not found"));
 }
 
-void *triggerTriggerCommand(PlayerProcessData *playerProcessData, size_t *outSize) {
+Result triggerTriggerCommand(PlayerProcessData *playerProcessData) {
     log("Executing trigger command");
 
-    int results[playerProcessData->numberOfPlayers];
+    if (playerProcessData->playerPipes[0] == -1 || playerProcessData->playerPipes[1] == -1) {
+        return setupCharOutput(logError("Please create players before triggering them"));
+    }
+
+    int *results = calloc(playerProcessData->numberOfPlayers, sizeof(int));
     char *error;
     size_t isExecutionSuccessful = executeTriggerCommand(playerProcessData, results, &error);
+
+    Result result;
+
+    if (isExecutionSuccessful) {
+        result = setupOutput(results, sizeof(int) * playerProcessData->numberOfPlayers);
+    } else {
+        result = setupCharOutput(error);
+    }
 
     if (playerProcessData->currentIteration >= playerProcessData->iterations) {
         closePlayerProcess(playerProcessData->playerPipes[0], playerProcessData->playerPipes[1]);
         resetPlayerProcessData(playerProcessData);
     }
 
-    // TODO add OK
-    return isExecutionSuccessful
-           ? setupOutput(results, sizeof(int) * playerProcessData->numberOfPlayers, outSize)
-           : setupCharOutput(error, outSize);
+    return result;
 }
 
-void *triggerCreateCommand(PlayerProcessData *playerProcessData, size_t *outSize) {
+Result triggerCreateCommand(PlayerProcessData *playerProcessData) {
     log("Executing create command");
     char *implementation = strtok(NULL, COMMAND_DELIMITER);
     char *playersCountAsString = strtok(NULL, COMMAND_DELIMITER);
     char *numberOfIterationsAsString = strtok(NULL, COMMAND_DELIMITER);
 
     if (implementation == NULL || playersCountAsString == NULL || numberOfIterationsAsString == NULL) {
-        return setupCharOutput(logError("Required parameters for create command are missing\n"), outSize);
+        return setupCharOutput(logError("Required parameters for create command are missing\n"));
     }
 
     char *errMessage;
     if (!parseInteger(playersCountAsString, &playerProcessData->numberOfPlayers, &errMessage) ||
         !parseInteger(numberOfIterationsAsString, &playerProcessData->iterations, &errMessage)) {
-        return setupCharOutput(logError(errMessage), outSize);
+        return setupCharOutput(logError(errMessage));
     }
 
     if (playerProcessData->iterations <= 0 || playerProcessData->iterations > 100) {
-        return setupCharOutput(logError("The number of iterations can be [1:100]"), outSize);
+        return setupCharOutput(logError("The number of iterations can be [1:100]"));
     }
 
     char *playerProcessSetupResult = setupPlayerProcess(implementation,
                                                         playerProcessData->numberOfPlayers,
                                                         playerProcessData->playerPipes);
-    return setupCharOutput(playerProcessSetupResult, outSize);
+    return setupCharOutput(playerProcessSetupResult);
 }
 
 void handleConnection(int connectionFD) {
@@ -138,11 +154,19 @@ void handleConnection(int connectionFD) {
 
     char operation[SOCKET_BUFFER_SIZE] = {0};
     while (receiveSocketData(connectionFD, operation)) {
-        size_t size;
-        void *result = executeClientOperation(operation, &playerProcessData, &size);
+        Result result = executeClientOperation(operation, &playerProcessData);
 
         log("Returned result");
-        writeToSocket(connectionFD, result, size);
+
+        if (result.isMessage) {
+            writeToSocket(connectionFD, result.message, result.size);
+        } else {
+            writeToSocket(connectionFD, result.results, result.size);
+            for (int i = 0; i < result.size / sizeof(int); i++) {
+                printf("%d ", result.results[i]);
+            }
+            printf("\n");
+        }
 
         clearData(operation, SOCKET_BUFFER_SIZE);
     }
@@ -164,10 +188,6 @@ int setupSocket(struct sockaddr_in *address) {
 }
 
 size_t executeTriggerCommand(PlayerProcessData *playerProcessData, int *results, char **error) {
-    if (playerProcessData->playerPipes[0] == -1 || playerProcessData->playerPipes[1] == -1) {
-        *error = "Please create players before triggering them";
-        return 0;
-    }
     int readerPipe = playerProcessData->playerPipes[0];
     int writerPipe = playerProcessData->playerPipes[1];
 

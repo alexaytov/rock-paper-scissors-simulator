@@ -1,16 +1,37 @@
-#include <stdio.h>
-#include <stdlib.h>
 #include <memory.h>
 #include <unistd.h>
 #include <signal.h>
+#include <time.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "utils.h"
 
+void printTimestamp(FILE *out) {
+    time_t currentTime = time(NULL);
+    if (currentTime == -1) {
+        fprintf(stderr, "error on time func\n");
+        return;
+    }
+
+    struct tm *ptm = localtime(&currentTime);
+    if (ptm == NULL) {
+        fprintf(stderr, "error on localtime func\n");
+        return;
+    }
+
+    fprintf(out, "%d/%02d/%02d %02d:%02d:%02d ",
+            ptm->tm_year + 1900, ptm->tm_mon, ptm->tm_mday,
+            ptm->tm_hour, ptm->tm_min, ptm->tm_sec);
+}
+
 char *logError(char *msg) {
+    printTimestamp(stderr);
     fprintf(stderr, "%s", msg);
     return msg;
 }
 
 char *logExit(char *msg) {
+    printTimestamp(stderr);
     fprintf(stderr, "%s", msg);
     exit(EXIT_FAILURE);
 }
@@ -44,6 +65,7 @@ void initSignalHandler(int signal, void *handler) {
 }
 
 char *log(char *msg) {
+    printTimestamp(stdout);
     fprintf(stdout, "%s\n", msg);
     return msg;
 }

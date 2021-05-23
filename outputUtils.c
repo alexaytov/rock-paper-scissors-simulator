@@ -2,8 +2,6 @@
 #include <limits.h>
 #include "outputUtils.h"
 
-void printWinners(const int *winners, int winnerValue, int currentWinnerPos);
-
 void printSeparators(int number, char separator) {
     for (int i = 0; i < number; i++) {
         printf("%c", separator);
@@ -60,4 +58,11 @@ void printWinners(const int *winners, int winnerValue, int currentWinnerPos) {
         printf("%d ", winners[i]);
     }
     printf("\n");
+}
+
+void printFinalResults(int numberOfPlayers, int *finalResults) {
+    printf("\nFinal results\n");
+    printTableTitles(numberOfPlayers);
+    printResultSeparators();
+    printResults(numberOfPlayers, finalResults);
 }
