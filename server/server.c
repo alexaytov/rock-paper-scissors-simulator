@@ -5,9 +5,9 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <signal.h>
-#include "tcpUtils.h"
-#include "utils.h"
-#include "dataUtils.h"
+#include "utils/IO/tcpUtils.h"
+#include "utils/utils.h"
+#include "utils/dataUtils.h"
 #include "player.h"
 #include "server.h"
 #include "communicationConstants.h"

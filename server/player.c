@@ -5,8 +5,8 @@
 #include <stdio.h>
 #include <string.h>
 #include "player.h"
-#include "pipeUtils.h"
-#include "utils.h"
+#include "utils/IO/pipeUtils.h"
+#include "utils/utils.h"
 #include "communicationConstants.h"
 
 int areAllFlagsUp(const int *readyFlags, int size);

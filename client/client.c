@@ -1,16 +1,16 @@
 
 
-#include <inputUtils.h>
+#include <utils/IO/inputUtils.h>
 #include <stdio.h>
-#include <tcpUtils.h>
+#include <utils/IO/tcpUtils.h>
 #include <communicationConstants.h>
 #include <server/player.h>
-#include <gameResultEvaluation.h>
+#include <client/gameResultEvaluation.h>
 #include <unistd.h>
 #include <signal.h>
 #include <stdlib.h>
-#include <server/utils.h>
-#include <outputUtils.h>
+#include <utils/utils.h>
+#include <utils/IO/outputUtils.h>
 #include "client.h"
 
 #define CREATE_COMMAND_TEMPLATE "create %s %d %d"

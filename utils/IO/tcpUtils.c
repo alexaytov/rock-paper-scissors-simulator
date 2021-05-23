@@ -2,7 +2,7 @@
 #include <arpa/inet.h>
 #include <stdlib.h>
 #include <string.h>
-#include <server/utils.h>
+#include <utils/utils.h>
 #include <server/server.h>
 #include "tcpUtils.h"
 

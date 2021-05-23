@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "pipeUtils.h"
-#include "utils.h"
+#include "utils/utils.h"
 
 void closePipes(int first, int second) {
     close(first);

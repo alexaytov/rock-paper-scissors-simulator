@@ -2,7 +2,7 @@
 #include <server/player.h>
 #include <errno.h>
 #include <stdlib.h>
-#include <server/dataUtils.h>
+#include <utils/dataUtils.h>
 #include "inputUtils.h"
 
 #define IMPL_INPUT_TEMPLATE "%d. Player sync: %s, Controller sync: %s"
