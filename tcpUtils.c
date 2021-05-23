@@ -79,16 +79,20 @@ int receiveSocketDataWithTimeout(int sockFD, void *result) {
 void waitRequiredSocketResponse(int sockFD, char *requiredResponse) {
     char receiveBuffer[100] = {0};
 
-    setAlarm(SERVER_TIMEOUT);
-    if (!receiveSocketDataWithTimeout(sockFD, receiveBuffer)) {
+    if (!receiveSocketData(sockFD, receiveBuffer)) {
         exit(EXIT_FAILURE);
     }
-    cancelAlarm();
 
     if (strcmp(receiveBuffer, requiredResponse) != 0) {
         fprintf(stderr, "An error occurred on the server: %s\n", receiveBuffer);
         exit(EXIT_FAILURE);
     }
+}
+
+void waitRequiredSocketResponseWithTimeout(int sockFD, char *requiredResponse) {
+    setAlarm(SERVER_TIMEOUT);
+    waitRequiredSocketResponse(sockFD, requiredResponse);
+    cancelAlarm();
 }
 
 int initRequiredClient(int port) {

@@ -43,12 +43,13 @@ int main() {
     struct sockaddr_in address;
     sockFD = setupSocket(&address);
 
-    for (;;) {
+    while (1) {
         int connectionFD = acceptConnection(sockFD, address);
         if (connectionFD == -1) {
             close(sockFD);
             exit(EXIT_FAILURE);
         }
+        log("Server accepted connection");
 
         handleConnection(connectionFD);
     }
@@ -156,23 +157,16 @@ void handleConnection(int connectionFD) {
     while (receiveSocketData(connectionFD, operation)) {
         Result result = executeClientOperation(operation, &playerProcessData);
 
-        log("Returned result");
-
         if (result.isMessage) {
             writeToSocket(connectionFD, result.message, result.size);
         } else {
             writeToSocket(connectionFD, result.results, result.size);
-            for (int i = 0; i < result.size / sizeof(int); i++) {
-                printf("%d ", result.results[i]);
-            }
-            printf("\n");
         }
+        log("Returned result");
 
         clearData(operation, SOCKET_BUFFER_SIZE);
     }
 }
-
-#pragma clang diagnostic pop
 
 int setupSocket(struct sockaddr_in *address) {
     address->sin_family = AF_INET;
@@ -219,7 +213,7 @@ char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]
         return "There was an error when creating the player process";
     }
 
-    if (procId == 0)  // child TODO replace with procId == 0
+    if (procId != 0)  // child TODO replace with procId == 0
     {
         close(serverToPlayerPipe[1]);
         close(playerToServerPipe[0]);

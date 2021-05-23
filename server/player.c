@@ -9,8 +9,10 @@
 #include "utils.h"
 #include "communicationConstants.h"
 
+int areAllFlagsUp(const int *readyFlags, int size);
+
 void triggerCountSemPlayerThreads(int numberOfPlayers,
-                                  CountingSemaphorePlayerData **playersData,
+                                  BinarySemaphorePlayerData **playersData,
                                   pthread_barrier_t *barrier) {
     for (int i = 0; i < numberOfPlayers; i++) {
         sem_post(&playersData[i]->sem);
@@ -21,16 +23,41 @@ void triggerCountSemPlayerThreads(int numberOfPlayers,
 
 void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
                                    pthread_cond_t *cond,
-                                   pthread_barrier_t *barrier) {
-    pthread_mutex_lock(mtx);
-    pthread_cond_broadcast(cond);
-    pthread_mutex_unlock(mtx);
+                                   pthread_barrier_t *barrier,
+                                   int *readyFlags,
+                                   int numberOfPlayers) {
+    int executed = 0;
 
-    pthread_barrier_wait(barrier);
+    do {
+        pthread_mutex_lock(mtx);
+
+        if (!areAllFlagsUp(readyFlags, numberOfPlayers)) {
+            log("Not mutex-cond players are ready to be trigger, polling...");
+            pthread_mutex_unlock(mtx);
+            sleep(1);
+            continue;
+        }
+
+        pthread_cond_broadcast(cond);
+        pthread_mutex_unlock(mtx);
+
+        pthread_barrier_wait(barrier);
+        executed = 1;
+    } while (!executed);
+}
+
+int areAllFlagsUp(const int *readyFlags, int size) {
+    for (int i = 0; i < size; i++) {
+        if (!readyFlags[i]) {
+            return 0;
+        }
+    }
+
+    return 1;
 }
 
 _Noreturn void *countingSemaphorePlayer(void *arg) {
-    CountingSemaphorePlayerData *data = (CountingSemaphorePlayerData *) arg;
+    BinarySemaphorePlayerData *data = (BinarySemaphorePlayerData *) arg;
 
     for (;;) {
         sem_wait(&data->sem);
@@ -58,7 +85,7 @@ void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]) 
     Choice *results = malloc(sizeof(Choice) * numberOfPlayers);
 
     if (!strcmp(implementation, BINARY_SEM_IMPL)) {
-        countingSemPlayerImplementation(serverPipes, numberOfPlayers, results);
+        binarySemPlayerImplementation(serverPipes, numberOfPlayers, results);
     }
 
     if (!strcmp(implementation, MTX_COND_IMPL)) {
@@ -77,18 +104,21 @@ void setupMutexCondPlayerThreads(int numberOfPlayers,
                                  pthread_t *playerThreads,
                                  pthread_barrier_t *barrier,
                                  Choice *results,
+                                 int *readyFlags,
                                  pthread_mutex_t *mtx,
                                  pthread_cond_t *cond) {
+    printTimestamp(stdout);
     printf("Creating %d mutex cond player threads\n", numberOfPlayers);
 
     MutexCondPlayerData *data;
     for (int i = 0; i < numberOfPlayers; i++) {
-        data = malloc(sizeof(CountingSemaphorePlayerData));
+        data = malloc(sizeof(BinarySemaphorePlayerData));
         data->id = i;
         data->results = results;
         data->barrier = barrier;
         data->mtx = mtx;
         data->cond = cond;
+        data->readyFlags = readyFlags;
 
         playersData[i] = data;
 
@@ -101,7 +131,8 @@ void mutexCondPlayerController(int serverPipes[2],
                                pthread_mutex_t *mtx,
                                pthread_cond_t *cond,
                                pthread_barrier_t *barrier,
-                               Choice *results) {
+                               Choice *results,
+                               int *readyFlags) {
     int readerPipe = serverPipes[0];
     int writerPipe = serverPipes[1];
 
@@ -117,7 +148,7 @@ void mutexCondPlayerController(int serverPipes[2],
         }
 
         if (!strcmp(message, TRIGGER)) {
-            triggerMutexCondPlayerThreads(mtx, cond, barrier);
+            triggerMutexCondPlayerThreads(mtx, cond, barrier, readyFlags, numberOfPlayers);
             write(writerPipe, results, sizeof(int) * numberOfPlayers);
             continue;
         }
@@ -157,6 +188,7 @@ void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choi
 
     pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
     MutexCondPlayerData **playersData = malloc(sizeof(MutexCondPlayerData) * numberOfPlayers);
+    int *readyFlags = calloc(numberOfPlayers, sizeof(int));
 
     // init sync variables
     pthread_barrier_t barrier;
@@ -169,9 +201,10 @@ void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choi
         exitWithError(errMessage, readerPipe, writerPipe);
     }
 
-    setupMutexCondPlayerThreads(numberOfPlayers, playersData, playerThreads, &barrier, results, &mtx, &cond);
+    setupMutexCondPlayerThreads(numberOfPlayers, playersData, playerThreads, &barrier, results, readyFlags, &mtx,
+                                &cond);
 
-    mutexCondPlayerController(serverPipes, numberOfPlayers, &mtx, &cond, &barrier, results);
+    mutexCondPlayerController(serverPipes, numberOfPlayers, &mtx, &cond, &barrier, results, readyFlags);
 
     // cleanup
     for (int i = 0; i < numberOfPlayers; i++) {
@@ -179,15 +212,18 @@ void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choi
     }
     free(playersData);
     free(playerThreads);
+    free(readyFlags);
+    pthread_mutex_destroy(&mtx);
+    pthread_cond_destroy(&cond);
     pthread_barrier_destroy(&barrier);
 }
 
-void countingSemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results) {
+void binarySemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results) {
     int readerPipe = serverPipes[0];
     int writerPipe = serverPipes[1];
 
     pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
-    CountingSemaphorePlayerData **playersData = malloc(sizeof(CountingSemaphorePlayerData) * numberOfPlayers);
+    BinarySemaphorePlayerData **playersData = malloc(sizeof(BinarySemaphorePlayerData) * numberOfPlayers);
 
     pthread_barrier_t barrier;
     char *barrierErrMsg;
@@ -195,9 +231,9 @@ void countingSemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choi
         exitWithError(barrierErrMsg, readerPipe, writerPipe);
     }
 
-    setupCountingSemPlayerThreads(numberOfPlayers, results, &barrier, playersData, playerThreads, serverPipes);
+    setupBinarySemPlayerThreads(numberOfPlayers, results, &barrier, playersData, playerThreads, serverPipes);
 
-    countingSemPlayerController(serverPipes, numberOfPlayers, playersData, &barrier, results);
+    binarySemPlayerController(serverPipes, numberOfPlayers, playersData, &barrier, results);
 
     // cleanup
     for (int i = 0; i < numberOfPlayers; i++) {
@@ -208,11 +244,11 @@ void countingSemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choi
     pthread_barrier_destroy(&barrier);
 }
 
-void countingSemPlayerController(const int *serverPipes,
-                                 int numberOfPlayers,
-                                 CountingSemaphorePlayerData **playersData,
-                                 pthread_barrier_t *barrier,
-                                 Choice *results) {
+void binarySemPlayerController(const int *serverPipes,
+                               int numberOfPlayers,
+                               BinarySemaphorePlayerData **playersData,
+                               pthread_barrier_t *barrier,
+                               Choice *results) {
     int readerPipe = serverPipes[0];
     int writerPipe = serverPipes[1];
 
@@ -245,10 +281,14 @@ void countingSemPlayerController(const int *serverPipes,
 _Noreturn void *mutexCondPlayer(void *arg) {
     MutexCondPlayerData *data = (MutexCondPlayerData *) arg;
 
+    printf("Started player with id: %d\n", data->id);
+
     for (;;) {
         pthread_mutex_lock(data->mtx);
+        data->readyFlags[data->id] = 1;
         pthread_cond_wait(data->cond, data->mtx);
 
+        printf("Player with id %d activated\n", data->id);
         data->results[data->id] = choose();
 
         pthread_mutex_unlock(data->mtx);
@@ -279,18 +319,18 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
     exit(EXIT_FAILURE);
 }
 
-void setupCountingSemPlayerThreads(int numberOfPlayers,
-                                   Choice *results,
-                                   pthread_barrier_t *barrier,
-                                   CountingSemaphorePlayerData **playersData,
-                                   pthread_t *playerThreads,
-                                   int *serverPipes) {
+void setupBinarySemPlayerThreads(int numberOfPlayers,
+                                 Choice *results,
+                                 pthread_barrier_t *barrier,
+                                 BinarySemaphorePlayerData **playersData,
+                                 pthread_t *playerThreads,
+                                 int *serverPipes) {
     printTimestamp(stdout);
     printf("Creating %d player threads\n", numberOfPlayers);
 
-    CountingSemaphorePlayerData *data;
+    BinarySemaphorePlayerData *data;
     for (int i = 0; i < numberOfPlayers; i++) {
-        data = malloc(sizeof(CountingSemaphorePlayerData));
+        data = malloc(sizeof(BinarySemaphorePlayerData));
         data->id = i;
         data->results = results;
         data->barrier = barrier;

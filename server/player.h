@@ -20,13 +20,14 @@ typedef struct CountingSemaphorePlayerData {
     pthread_barrier_t *barrier;
     sem_t sem;
     Choice *results;
-} CountingSemaphorePlayerData;
+} BinarySemaphorePlayerData;
 
 typedef struct MutexCondPlayerData {
     int id;
     pthread_barrier_t *barrier;
     pthread_mutex_t *mtx;
     pthread_cond_t *cond;
+    int *readyFlags;
     Choice *results;
 } MutexCondPlayerData;
 
@@ -40,25 +41,25 @@ typedef struct PlayerProcessData {
 _Noreturn void *countingSemaphorePlayer(void *arg);
 
 void triggerCountSemPlayerThreads(int numberOfPlayers,
-                                  CountingSemaphorePlayerData **playersData,
+                                  BinarySemaphorePlayerData **playersData,
                                   pthread_barrier_t *barrier);
 
-void countingSemPlayerController(const int serverPipes[2],
-                                 int numberOfPlayers,
-                                 CountingSemaphorePlayerData **playersData,
-                                 pthread_barrier_t *barrier,
-                                 Choice *results);
+void binarySemPlayerController(const int serverPipes[2],
+                               int numberOfPlayers,
+                               BinarySemaphorePlayerData **playersData,
+                               pthread_barrier_t *barrier,
+                               Choice *results);
 
 _Noreturn void *mutexCondPlayer(void *arg);
 
 void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]);
 
-void setupCountingSemPlayerThreads(int numberOfPlayers,
-                                   Choice *results,
-                                   pthread_barrier_t *barrier,
-                                   CountingSemaphorePlayerData **playersData,
-                                   pthread_t *playerThreads,
-                                   int *serverPipes);
+void setupBinarySemPlayerThreads(int numberOfPlayers,
+                                 Choice *results,
+                                 pthread_barrier_t *barrier,
+                                 BinarySemaphorePlayerData **playersData,
+                                 pthread_t *playerThreads,
+                                 int *serverPipes);
 
 int setupSemaphore(sem_t *sem, char **errMessage);
 
@@ -70,7 +71,7 @@ void closePlayerProcess(int readerPipe, int writerPipe);
 
 int isValidNumberOfPlayers(int numberOfPlayers, char **errMessage);
 
-void countingSemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results);
+void binarySemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice *results);
 
 void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choice *results);
 
@@ -79,6 +80,7 @@ void mutexCondPlayerController(int serverPipes[2],
                                pthread_mutex_t *mtx,
                                pthread_cond_t *cond,
                                pthread_barrier_t *barrier,
-                               Choice *results);
+                               Choice *results,
+                               int *readyFlags);
 
 #endif //KR_PLAYER_H

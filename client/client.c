@@ -35,9 +35,7 @@ void initializeSignalHandlers() {
     initSignalHandler(SIGTERM, unexpectedCloseHandler);
 }
 
-void executeCreateCommand(int sockFD, int numberOfPlayers, int iterations) {
-    char *implementation = getImplementationInput();
-
+void executeCreateCommand(int sockFD, int numberOfPlayers, int iterations, char *implementation) {
     char createCommand[100] = {0};
     sprintf(createCommand, CREATE_COMMAND_TEMPLATE, implementation, numberOfPlayers, iterations);
     writeCharToSocket(sockFD, createCommand);
@@ -54,25 +52,25 @@ void addResultsToFinalResults(int numberOfPlayers, int *finalResults, const int 
 void executeTriggerCommand(int sockFD, int iterations, int numberOfPlayers) {
     int *finalResults = calloc(numberOfPlayers, sizeof(int));
     printf("\nIntermediate results\n");
-    printTableTitles(numberOfPlayers);
+    printRowTableTitles(numberOfPlayers);
 
     for (int i = 0; i < iterations; i++) {
-        executeTriggerIteration(sockFD, numberOfPlayers, finalResults);
+        executeTriggerIteration(sockFD, numberOfPlayers, i, finalResults);
     }
 
     printFinalResults(numberOfPlayers, finalResults);
 }
 
-void executeTriggerIteration(int sockFD, int numberOfPlayers, int *finalResults) {
+void executeTriggerIteration(int sockFD, int numberOfPlayers, int row, int *finalResults) {
     writeCharToSocket(sockFD, TRIGGER_COMMAND);
     Choice *results = malloc(sizeof(int) * numberOfPlayers);
     receiveSocketData(sockFD, results); // TODO use method with timeout
 
     int *intermediateResults = calloc(numberOfPlayers, sizeof(int));
     evaluatePoints(results, numberOfPlayers, intermediateResults);
-    printResultSeparators();
+    printResultSeparators(calculateSeparatorsCount(numberOfPlayers));
 
-    printResults(numberOfPlayers, intermediateResults);
+    printRowResults(row, numberOfPlayers, intermediateResults);
     addResultsToFinalResults(numberOfPlayers, finalResults, intermediateResults);
 
     free(intermediateResults);
@@ -82,12 +80,17 @@ void executeTriggerIteration(int sockFD, int numberOfPlayers, int *finalResults)
 int main() {
     initializeSignalHandlers();
 
-    sockFD = initRequiredClient(PORT);
-
+    // get user input
     int numberOfPlayers = getIntegerInput("Enter number of players: ", 1, 100);
     int iterations = getIntegerInput("Enter number of iterations: ", 1, 100);
+    char *implementation = getImplementationInput();
 
-    executeCreateCommand(sockFD, numberOfPlayers, iterations);
+    sockFD = initRequiredClient(PORT);
+    log("Initialized client<->server connection");
+
+    executeCreateCommand(sockFD, numberOfPlayers, iterations, implementation);
+    log("Executed create command");
+
     executeTriggerCommand(sockFD, iterations, numberOfPlayers);
 
     close(sockFD);

@@ -19,6 +19,8 @@ int receiveSocketData(int sockFD, void *result);
 
 void waitRequiredSocketResponse(int sockFD, char *requiredResponse);
 
+void waitRequiredSocketResponseWithTimeout(int sockFD, char *requiredResponse);
+
 int initClient(int port);
 
 int initRequiredClient(int port);

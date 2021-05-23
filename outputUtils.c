@@ -8,12 +8,24 @@ void printSeparators(int number, char separator) {
     }
 }
 
-void printResultSeparators() {
-    printSeparators(60, '-');
+void printResultSeparators(int num) {
+    printSeparators(num, '-');
     printf("\n");
 }
 
+int calculateSeparatorsCount(int numberOfPlayers) {
+    return 14 * numberOfPlayers + 21;
+}
+
 void printTableTitles(int numberOfPlayers) {
+    for (int j = 0; j < numberOfPlayers; j++) {
+        printf("<id>:<result> ");
+    }
+    printf("\n");
+}
+
+void printRowTableTitles(int numberOfPlayers) {
+    printf("<row> ");
     for (int j = 0; j < numberOfPlayers; j++) {
         printf("<id>:<result> ");
     }
@@ -43,6 +55,11 @@ void printResults(int numberOfPlayers, int *intermediateResults) {
     printWinners(winners, winnerValue, currentWinnerPos);
 }
 
+void printRowResults(int row, int numberOfPlayers, int *intermediateResults) {
+    printf("%-6d", row);
+    printResults(numberOfPlayers, intermediateResults);
+}
+
 void printWinners(const int *winners, int winnerValue, int currentWinnerPos) {
     int isAtLeastOneWinnerPresent = currentWinnerPos != 0 && winnerValue != 0;
 
@@ -63,6 +80,6 @@ void printWinners(const int *winners, int winnerValue, int currentWinnerPos) {
 void printFinalResults(int numberOfPlayers, int *finalResults) {
     printf("\nFinal results\n");
     printTableTitles(numberOfPlayers);
-    printResultSeparators();
+    printResultSeparators(calculateSeparatorsCount(numberOfPlayers));
     printResults(numberOfPlayers, finalResults);
 }
