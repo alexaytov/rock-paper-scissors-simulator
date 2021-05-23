@@ -42,7 +42,7 @@ _Noreturn void *countingSemaphorePlayer(void *arg) {
 }
 
 int isSupportedImplementation(char *implementation) {
-    return !strcmp(implementation, COUNT_SEM_IMPL) || !strcmp(implementation, MTX_COND_IMPL);
+    return !strcmp(implementation, BINARY_SEM_IMPL) || !strcmp(implementation, MTX_COND_IMPL);
 }
 
 void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]) {
@@ -57,7 +57,7 @@ void initPlayers(char *implementation, int numberOfPlayers, int serverPipes[2]) 
 
     Choice *results = malloc(sizeof(Choice) * numberOfPlayers);
 
-    if (!strcmp(implementation, COUNT_SEM_IMPL)) {
+    if (!strcmp(implementation, BINARY_SEM_IMPL)) {
         countingSemPlayerImplementation(serverPipes, numberOfPlayers, results);
     }
 

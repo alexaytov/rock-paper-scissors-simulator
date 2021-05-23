@@ -18,7 +18,7 @@ char *getImplementationInput() {
     int choice = getIntegerInput("Enter a option: ", 1, 2);
 
     if (choice == 1) {
-        return COUNT_SEM_IMPL;
+        return BINARY_SEM_IMPL;
     }
 
     if (choice == 2) {

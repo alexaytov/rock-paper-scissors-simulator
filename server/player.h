@@ -6,7 +6,7 @@
 #define PLAYER_BUFFER_SIZE 1024
 #define UNRECOGNIZED_COMMAND "Unrecognized command"
 
-#define COUNT_SEM_IMPL "count-sem"
+#define BINARY_SEM_IMPL "binary-sem"
 #define MTX_COND_IMPL "mtx-cond"
 
 #include <semaphore.h>
