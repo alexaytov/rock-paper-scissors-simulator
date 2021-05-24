@@ -13,7 +13,7 @@ typedef struct Result {
     size_t size;
 } Result;
 
-size_t executeTriggerCommand(PlayerProcessData *playerProcessData, int *results, char **error);
+size_t executePlayersTriggerCommand(PlayerProcessData *playerProcessData, int *results, char **error);
 
 void resetPlayerProcessData(PlayerProcessData *);
 
@@ -23,10 +23,20 @@ Result triggerCreateCommand(PlayerProcessData *playerProcessData);
 
 Result triggerTriggerCommand(PlayerProcessData *playerProcessData);
 
-int setupSocket();
-
 char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]);
 
-void handleConnection(int connectionFD);
+void timeoutHandler();
+
+void unexpectedCloseHandler(int signal);
+
+void initializeSignalHandlers();
+
+Result setupOutput(int *results, size_t outputSize);
+
+Result setupCharOutput(char *message);
+
+Result executeCommand(char *input, PlayerProcessData *playerProcessData);
+
+int setupSocket(struct sockaddr_in *address);
 
 #endif //KR_SERVER_H

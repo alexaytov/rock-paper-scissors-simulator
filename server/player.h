@@ -38,11 +38,11 @@ typedef struct PlayerProcessData {
     int iterations;
 } PlayerProcessData;
 
-_Noreturn void *countingSemaphorePlayer(void *arg);
+_Noreturn void *binarySemaphorePlayer(void *arg);
 
-void triggerCountSemPlayerThreads(int numberOfPlayers,
-                                  BinarySemaphorePlayerData **playersData,
-                                  pthread_barrier_t *barrier);
+void triggerBinarySemPlayerThreads(int numberOfPlayers,
+                                   BinarySemaphorePlayerData **playersData,
+                                   pthread_barrier_t *barrier);
 
 void binarySemPlayerController(const int serverPipes[2],
                                int numberOfPlayers,
@@ -61,7 +61,7 @@ void setupBinarySemPlayerThreads(int numberOfPlayers,
                                  pthread_t *playerThreads,
                                  int *serverPipes);
 
-int setupSemaphore(sem_t *sem, char **errMessage);
+int initSemaphore(sem_t *sem, char **errMessage);
 
 int initBarrier(pthread_barrier_t *barrier, char **errMessage, int count);
 
@@ -82,5 +82,26 @@ void mutexCondPlayerController(int serverPipes[2],
                                pthread_barrier_t *barrier,
                                Choice *results,
                                int *readyFlags);
+
+int isSupportedImplementation(char *implementation);
+
+void setupMutexCondPlayerThreads(int numberOfPlayers,
+                                 MutexCondPlayerData **playersData,
+                                 pthread_t *playerThreads,
+                                 pthread_barrier_t *barrier,
+                                 Choice *results,
+                                 int *readyFlags,
+                                 pthread_mutex_t *mtx,
+                                 pthread_cond_t *cond);
+
+int initCond(pthread_cond_t *cond, char **errMessage);
+
+int initMutex(pthread_mutex_t *mtx, char **errMessage);
+
+void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
+                                   pthread_cond_t *cond,
+                                   pthread_barrier_t *barrier,
+                                   int *readyFlags,
+                                   int numberOfPlayers);
 
 #endif //KR_PLAYER_H

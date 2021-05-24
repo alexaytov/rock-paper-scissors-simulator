@@ -1,5 +1,3 @@
-
-
 #include <utils/IO/inputUtils.h>
 #include <stdio.h>
 #include <utils/IO/tcpUtils.h>
@@ -13,11 +11,9 @@
 #include <utils/IO/outputUtils.h>
 #include "client.h"
 
-#define CREATE_COMMAND_TEMPLATE "create %s %d %d"
-
 int sockFD;
 
-void alarmSignalHandler() {
+void timeoutHandler() {
     printf("Timeout\n");
     close(sockFD);
     exit(EXIT_FAILURE);
@@ -30,7 +26,7 @@ void unexpectedCloseHandler(int signal) {
 }
 
 void initializeSignalHandlers() {
-    initSignalHandler(SIGALRM, alarmSignalHandler);
+    initSignalHandler(SIGALRM, timeoutHandler);
     initSignalHandler(SIGINT, unexpectedCloseHandler);
     initSignalHandler(SIGTERM, unexpectedCloseHandler);
 }
@@ -65,9 +61,9 @@ void executeTriggerIteration(int sockFD, int numberOfPlayers, int row, int *fina
     writeCharToSocket(sockFD, TRIGGER_COMMAND);
     Choice *results = malloc(sizeof(int) * numberOfPlayers);
 
-    waitRequiredSocketResponse(sockFD, OK); // TODO use method with timeout
+    waitRequiredSocketResponseWithTimeout(sockFD, OK);
     writeCharToSocket(sockFD, OK);
-    receiveSocketData(sockFD, results); // TODO use method with timeout
+    receiveSocketDataWithTimeout(sockFD, results);
 
     int *intermediateResults = calloc(numberOfPlayers, sizeof(int));
     evaluatePoints(results, numberOfPlayers, intermediateResults);
@@ -89,10 +85,10 @@ int main() {
     char *implementation = getImplementationInput();
 
     sockFD = initRequiredClient(PORT);
-    log("Initialized client<->server connection");
+    logInfo("Initialized client<->server connection");
 
     executeCreateCommand(sockFD, numberOfPlayers, iterations, implementation);
-    log("Executed create command");
+    logInfo("Executed create command");
 
     executeTriggerCommand(sockFD, iterations, numberOfPlayers);
 

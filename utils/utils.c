@@ -64,7 +64,7 @@ void initSignalHandler(int signal, void *handler) {
     }
 }
 
-char *log(char *msg) {
+char *logInfo(char *msg) {
     printTimestamp(stdout);
     fprintf(stdout, "%s\n", msg);
     return msg;

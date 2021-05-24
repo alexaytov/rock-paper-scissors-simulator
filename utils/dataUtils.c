@@ -1,7 +1,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <stdio.h>
 #include "dataUtils.h"
 
 int buildStrToLErrorIfPresent(char *buffer, char *endPtr, int number, char **errorMessage) {

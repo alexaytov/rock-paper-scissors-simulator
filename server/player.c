@@ -11,9 +11,9 @@
 
 int areAllFlagsUp(const int *readyFlags, int size);
 
-void triggerCountSemPlayerThreads(int numberOfPlayers,
-                                  BinarySemaphorePlayerData **playersData,
-                                  pthread_barrier_t *barrier) {
+void triggerBinarySemPlayerThreads(int numberOfPlayers,
+                                   BinarySemaphorePlayerData **playersData,
+                                   pthread_barrier_t *barrier) {
     for (int i = 0; i < numberOfPlayers; i++) {
         sem_post(&playersData[i]->sem);
     }
@@ -32,7 +32,7 @@ void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
         pthread_mutex_lock(mtx);
 
         if (!areAllFlagsUp(readyFlags, numberOfPlayers)) {
-            log("Not mutex-cond players are ready to be trigger, polling...");
+            logInfo("Not mutex-cond players are ready to be trigger, polling...");
             pthread_mutex_unlock(mtx);
             usleep(100);
             continue;
@@ -56,7 +56,7 @@ int areAllFlagsUp(const int *readyFlags, int size) {
     return 1;
 }
 
-_Noreturn void *countingSemaphorePlayer(void *arg) {
+_Noreturn void *binarySemaphorePlayer(void *arg) {
     BinarySemaphorePlayerData *data = (BinarySemaphorePlayerData *) arg;
 
     for (;;) {
@@ -264,7 +264,7 @@ void binarySemPlayerController(const int *serverPipes,
         }
 
         if (!strcmp(message, TRIGGER)) {
-            triggerCountSemPlayerThreads(numberOfPlayers, playersData, barrier);
+            triggerBinarySemPlayerThreads(numberOfPlayers, playersData, barrier);
             write(writerPipe, results, sizeof(int) * numberOfPlayers);
             continue;
         }
@@ -307,7 +307,7 @@ void closePlayerProcess(int readerPipe, int writerPipe) {
     }
 
     if (!strcmp(processResponse, OK)) {
-        log("Successfully closed player process");
+        logInfo("Successfully closed player process");
         return;
     }
 
@@ -333,13 +333,13 @@ void setupBinarySemPlayerThreads(int numberOfPlayers,
         data->barrier = barrier;
 
         char *semError;
-        if (setupSemaphore(&data->sem, &semError)) {
+        if (initSemaphore(&data->sem, &semError)) {
             exitWithError(semError, serverPipes[0], serverPipes[1]);
         }
 
         playersData[i] = data;
 
-        pthread_create(&playerThreads[i], NULL, countingSemaphorePlayer, (void *) data);
+        pthread_create(&playerThreads[i], NULL, binarySemaphorePlayer, (void *) data);
     }
 }
 
@@ -353,7 +353,7 @@ int initBarrier(pthread_barrier_t *barrier, char **errMessage, int count) {
     return error;
 }
 
-int setupSemaphore(sem_t *sem, char **errMessage) {
+int initSemaphore(sem_t *sem, char **errMessage) {
     int error = sem_init(sem, 0, 0);
 
     if (error) {
