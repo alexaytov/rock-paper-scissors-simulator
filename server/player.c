@@ -32,7 +32,7 @@ void triggerMutexCondPlayerThreads(pthread_mutex_t *mtx,
         pthread_mutex_lock(mtx);
 
         if (!areAllFlagsUp(readyFlags, numberOfPlayers)) {
-            logInfo("Not mutex-cond players are ready to be trigger, polling...");
+            logInfo("Not mutex-cond players are ready to be triggered, polling...");
             pthread_mutex_unlock(mtx);
             usleep(100);
             continue;
@@ -187,7 +187,7 @@ void mutexCondPlayerImplementation(int serverPipes[2], int numberOfPlayers, Choi
     int writerPipe = serverPipes[1];
 
     pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
-    MutexCondPlayerData **playersData = malloc(sizeof(MutexCondPlayerData) * numberOfPlayers);
+    MutexCondPlayerData **playersData = malloc(sizeof(MutexCondPlayerData *) * numberOfPlayers);
     int *readyFlags = calloc(numberOfPlayers, sizeof(int));
 
     // init sync variables
@@ -223,7 +223,7 @@ void binarySemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice
     int writerPipe = serverPipes[1];
 
     pthread_t *playerThreads = malloc(sizeof(pthread_t) * numberOfPlayers);
-    BinarySemaphorePlayerData **playersData = malloc(sizeof(BinarySemaphorePlayerData) * numberOfPlayers);
+    BinarySemaphorePlayerData **playersData = malloc(sizeof(BinarySemaphorePlayerData *) * numberOfPlayers);
 
     pthread_barrier_t barrier;
     char *barrierErrMsg;
@@ -237,6 +237,7 @@ void binarySemPlayerImplementation(int *serverPipes, int numberOfPlayers, Choice
 
     // cleanup
     for (int i = 0; i < numberOfPlayers; i++) {
+        sem_destroy(&playersData[i]->sem);
         free(playersData[i]);
     }
     free(playersData);

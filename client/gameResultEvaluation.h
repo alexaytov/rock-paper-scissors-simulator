@@ -7,7 +7,7 @@ int *buildResults(Choice winner, Choice roundResults[], int pointsPerWinner, int
 
 int getPointsPerWinner(int singleWinnerPrize, int playersCount);
 
-int evaluateWinners(Choice selectedChoice, Choice enemy, Choice choices[], int positions[], int size);
+int evaluateWinners(Choice selectedChoice, Choice enemy, Choice choices[], int size);
 
 int areAllChoicesEqual(Choice choices[], int size);
 

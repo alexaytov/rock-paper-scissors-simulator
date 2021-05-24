@@ -232,7 +232,6 @@ char *setupPlayerProcess(char *implementation, int numberOfPlayers, int pipes[2]
     close(serverToPlayerPipe[0]);
     close(playerToServerPipe[1]);
 
-    // int *serverPipes = {playerToServerPipe[0], serverToPlayerPipe[1]};
     pipes[0] = playerToServerPipe[0];
     pipes[1] = serverToPlayerPipe[1];
 

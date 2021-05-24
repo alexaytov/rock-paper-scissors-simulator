@@ -1,5 +1,6 @@
 #include <server/player.h>
 #include <memory.h>
+#include <stdio.h>
 #include "gameResultEvaluation.h"
 
 int *buildResults(Choice winner, Choice roundResults[], int pointsPerWinner, int evaluationResults[], int size) {
@@ -12,12 +13,13 @@ int *buildResults(Choice winner, Choice roundResults[], int pointsPerWinner, int
     return evaluationResults;
 }
 
-int getPointsPerWinner(int singleWinnerPrize, int playersCount) { return singleWinnerPrize / playersCount; }
+int getPointsPerWinner(int singleWinnerPrize, int playersCount) {
+    return playersCount > singleWinnerPrize
+           ? 1
+           : singleWinnerPrize / playersCount;
+}
 
-int evaluateWinners(Choice selectedChoice, Choice enemy, Choice choices[], int positions[], int size) {
-    // if there is at least one enemy present the selected choice does not win
-    // there has to be at least one selected choice for it to win
-    // there places where the selected choice is is recorded in results
+int evaluateWinners(Choice selectedChoice, Choice enemy, Choice choices[], int size) {
     int winnersCounter = 0;
 
     for (int i = 0; i < size; i++) {
@@ -29,7 +31,6 @@ int evaluateWinners(Choice selectedChoice, Choice enemy, Choice choices[], int p
         // the current choice is found
         if (choices[i] == selectedChoice) {
             winnersCounter++;
-            positions[i] = 1;
         }
     }
 
@@ -51,21 +52,21 @@ int *evaluatePoints(Choice choices[], int size, int *evaluationResults) {
         return evaluationResults;
     }
 
-    int rockWinners = evaluateWinners(ROCK, PAPER, choices, evaluationResults, size);
+    int rockWinners = evaluateWinners(ROCK, PAPER, choices, size);
     if (rockWinners) {
         int pointPerWinner = getPointsPerWinner(WINNER_POINTS, rockWinners);
         return buildResults(ROCK, choices, pointPerWinner, evaluationResults, size);
     }
 
     memset(evaluationResults, 0, size);
-    int paperWinners = evaluateWinners(PAPER, SCISSORS, choices, evaluationResults, size);
+    int paperWinners = evaluateWinners(PAPER, SCISSORS, choices, size);
     if (paperWinners) {
         int pointPerWinner = getPointsPerWinner(WINNER_POINTS, paperWinners);
         return buildResults(PAPER, choices, pointPerWinner, evaluationResults, size);
     }
 
     memset(evaluationResults, 0, size);
-    int scissorsWinners = evaluateWinners(SCISSORS, ROCK, choices, evaluationResults, size);
+    int scissorsWinners = evaluateWinners(SCISSORS, ROCK, choices, size);
     if (scissorsWinners) {
         int pointPerWinner = getPointsPerWinner(WINNER_POINTS, scissorsWinners);
         return buildResults(SCISSORS, choices, pointPerWinner, evaluationResults, size);

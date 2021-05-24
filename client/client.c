@@ -41,7 +41,7 @@ void executeCreateCommand(int sockFD, int numberOfPlayers, int iterations, char 
 
 void addResultsToFinalResults(int numberOfPlayers, int *finalResults, const int *intermediateResults) {
     for (int j = 0; j < numberOfPlayers; j++) {
-        finalResults[j] += finalResults[j] + intermediateResults[j];
+        finalResults[j] += intermediateResults[j];
     }
 }
 
