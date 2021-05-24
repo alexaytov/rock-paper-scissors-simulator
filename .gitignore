@@ -1,3 +1,14 @@
+# IDE
+*.vscode
+*.idea
+CMake*
+cmake*
+notForBuildFiles
+*.cbp
+Makefile
+Testing
+diagrams
+
 # Prerequisites
 *.d
 
